@@ -5,12 +5,12 @@ import { webcrypto } from "crypto";
 // #############
 
 // Function to convert ArrayBuffer to Base64 string
-function arrayBufferToBase64(buffer: ArrayBuffer): string {
+export function arrayBufferToBase64(buffer: ArrayBuffer): string {
   return Buffer.from(buffer).toString("base64");
 }
 
 // Function to convert Base64 string to ArrayBuffer
-function base64ToArrayBuffer(base64: string): ArrayBuffer {
+export function base64ToArrayBuffer(base64: string): ArrayBuffer {
   const buff = Buffer.from(base64, "base64");
   return buff.buffer.slice(buff.byteOffset, buff.byteOffset + buff.byteLength);
 }
