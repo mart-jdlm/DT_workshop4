@@ -42,14 +42,11 @@ export async function user(userId: number) {
     const { message, destinationUserId } = req.body as SendMessageBody;
     lastSentMessage = message;
 
-    // Récupérer la liste des nœuds enregistrés
     const registryResponse = await fetch(`http://localhost:${REGISTRY_PORT}/getNodeRegistry`);
     const { nodes } = (await registryResponse.json()) as GetNodeRegistryBody;
 
-    // Créer un circuit de 3 nœuds distincts
     const circuit = nodes.slice(0, 3);
 
-    // Chiffrer le message pour chaque nœud du circuit
     let encryptedMessage = message;
     for (const node of circuit.reverse()) {
       const symKey = await createRandomSymmetricKey();
@@ -58,7 +55,6 @@ export async function user(userId: number) {
       encryptedMessage = encryptedSymKey + encryptedMessage;
     }
 
-    // Envoyer le message chiffré au premier nœud du circuit
     await fetch(`http://localhost:${BASE_ONION_ROUTER_PORT + circuit[0].nodeId}/message`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },

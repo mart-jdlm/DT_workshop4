@@ -32,26 +32,20 @@ export async function simpleOnionRouter(nodeId: number) {
     const { message } = req.body;
     lastReceivedEncryptedMessage = message;
 
-    // Convertir le message Base64 en ArrayBuffer
     const encryptedMessage = base64ToArrayBuffer(message);
 
-    // Récupérer la clé privée du nœud actuel
     const privateKeyResponse = await fetch(`http://localhost:8080/getPrivateKey/${nodeId}`);
     const { result: privateKeyBase64 } = await privateKeyResponse.json() as { result: string };
     const privateKey = await importPrvKey(privateKeyBase64);
 
-    // Convertir l'ArrayBuffer en Base64 pour rsaDecrypt
     const encryptedMessageBase64 = arrayBufferToBase64(encryptedMessage);
 
-    // Déchiffrer le message
     const decryptedMessage = await rsaDecrypt(encryptedMessageBase64, privateKey);
     lastReceivedDecryptedMessage = decryptedMessage;
 
-    // Extraire la destination suivante (les 10 premiers caractères)
     const nextDestination = parseInt(decryptedMessage.slice(0, 10), 10);
     lastMessageDestination = nextDestination;
 
-    // Transmettre le message à la destination suivante
     const nextMessage = decryptedMessage.slice(10);
     await fetch(`http://localhost:${nextDestination}/message`, {
       method: "POST",
