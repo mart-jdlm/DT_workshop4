@@ -3,13 +3,13 @@ import { launchRegistry } from "./registry/registry";
 import { launchUsers } from "./users/launchUsers";
 
 export async function launchNetwork(nbNodes: number, nbUsers: number) {
-  // launch node registry
+  // Lancer le registre
   const registry = await launchRegistry();
 
-  // launch all nodes
+  // Lancer les nœuds
   const onionServers = await launchOnionRouters(nbNodes);
 
-  // launch all users
+  // Lancer les utilisateurs
   const userServers = await launchUsers(nbUsers);
 
   return [registry, ...onionServers, ...userServers];
