@@ -46,60 +46,60 @@ export async function user(userId: number) {
 
   _user.post("/sendMessage", async (req, res) => {
     const { message, destinationUserId } = req.body as SendMessageBody;
-
+  
     if (typeof message !== "string" || typeof destinationUserId !== "number") {
-      res.status(400).json({ error: "Invalid request body" });
+      res.status(400).json({ error: "Request data is invalid" });
       return;
     }
-
+  
     try {
-      const registryResponse = await fetch(`http://localhost:${REGISTRY_PORT}/getNodeRegistry`);
-      const registryData = (await registryResponse.json()) as { nodes: Node[] };
-      const availableNodes = registryData.nodes;
-
-      if (availableNodes.length < 3) {
-        res.status(500).json({ error: "Not enough nodes in the network" });
+      const nodesListResponse = await fetch(`http://localhost:${REGISTRY_PORT}/getNodeRegistry`);
+      const nodesData = (await nodesListResponse.json()) as { nodes: Node[] };
+      const allNodes = nodesData.nodes;
+  
+      if (allNodes.length < 3) {
+        res.status(500).json({ error: "Insufficient nodes available" });
         return;
       }
-
-      const shuffledNodes = availableNodes.sort(() => 0.5 - Math.random()).slice(0, 3);
-      const circuit = shuffledNodes.map(node => node.nodeId);
-      lastCircuit = circuit;
-
-      const symmetricKeys = await Promise.all(circuit.map(() => createRandomSymmetricKey()));
-
-      let encryptedMessage = message;
-
-      for (let i = 2; i >= 0; i--) {
-        const nextDestination = i === 2
+  
+      const randomNodes = allNodes.sort(() => Math.random() - 0.5).slice(0, 3);
+      const nodePath = randomNodes.map(node => node.nodeId);
+      lastCircuit = nodePath;
+  
+      const secretKeys = await Promise.all(nodePath.map(() => createRandomSymmetricKey()));
+  
+      let layeredMessage = message;
+  
+      for (let i = nodePath.length - 1; i >= 0; i--) {
+        const nextStop = i === nodePath.length - 1
           ? (BASE_USER_PORT + destinationUserId).toString().padStart(10, "0")
-          : (BASE_ONION_ROUTER_PORT + circuit[i + 1]).toString().padStart(10, "0");
-
-        encryptedMessage = await symEncrypt(symmetricKeys[i], nextDestination + encryptedMessage);
-
-        const encryptedSymKey = await rsaEncrypt(await exportSymKey(symmetricKeys[i]), shuffledNodes[i].pubKey);
-
-        encryptedMessage = encryptedSymKey + encryptedMessage;
+          : (BASE_ONION_ROUTER_PORT + nodePath[i + 1]).toString().padStart(10, "0");
+  
+        layeredMessage = await symEncrypt(secretKeys[i], nextStop + layeredMessage);
+  
+        const wrappedKey = await rsaEncrypt(await exportSymKey(secretKeys[i]), randomNodes[i].pubKey);
+  
+        layeredMessage = wrappedKey + layeredMessage;
       }
-
-      const entryNode = circuit[0];
-      const entryNodeUrl = `http://localhost:${BASE_ONION_ROUTER_PORT + entryNode}/message`;
-
-      const response = await fetch(entryNodeUrl, {
+  
+      const firstNodeId = nodePath[0];
+      const firstNodeAddress = `http://localhost:${BASE_ONION_ROUTER_PORT + firstNodeId}/message`;
+  
+      const sendResult = await fetch(firstNodeAddress, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ message: encryptedMessage }),
+        body: JSON.stringify({ message: layeredMessage }),
       });
-
-      if (!response.ok) {
-        throw new Error(`Error sending message to the first node: ${response.status}`);
+  
+      if (!sendResult.ok) {
+        throw new Error(`Failed to deliver message to initial node: ${sendResult.status}`);
       }
-
+  
       lastSentMessage = message;
-      res.json({ status: "Message sent successfully" });
-    } catch (error) {
-      console.error("Error while sending the message:", error);
-      res.status(500).json({ error: "Internal error while sending the message" });
+      res.json({ success: "Message delivered successfully" });
+    } catch (err) {
+      console.error("Failed to send message:", err);
+      res.status(500).json({ error: "Message delivery failed due to an internal error" });
     }
   });
 
